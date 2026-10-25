@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>איתן -</title>
+  <title>איתן - חוסן וניהול הרגלים</title>
   
   <!-- Favicon / אייקון בלשונית הדפדפן -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2310b981'><path d='M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-5.45 9-12V7l-9-5z'/></svg>">
@@ -26,7 +26,13 @@
     const { useState, useEffect, useRef } = React;
 
     const COMMON_TRIGGER_REASONS = [
-      
+      "עייפות קיצונית / חוסר שינה",
+      "לחץ נפשי או חרדה פתאומים",
+      "שיעמום או זמן פנוי ללא מסגרת",
+      "טריגר סביבתי / חשיפה לגירוי",
+      "תחושת תסכול או כעס",
+      "אחר (פירוט חופשי)"
+    ];
 
     // רכיב הלוגו הראשי של איתן
     function EitanLogo({ size = "md" }) {
@@ -190,7 +196,7 @@
                 <div className="space-y-6">
                   <div className="text-center space-y-3 flex flex-col items-center">
                     <EitanLogo size="lg" />
-                    <h1 className="text-2xl font-black pt-2">ברוכים  לאיתן</h1>
+                    <h1 className="text-2xl font-black pt-2">ברוכים הבאים לאיתן</h1>
                     <p className="text-xs text-zinc-400">מרחב פרטי ומאובטח לבניית חוסן אישי וניהול הרגלים</p>
                   </div>
 
