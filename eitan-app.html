@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>איתן -</title>
+  
+  <!-- Favicon / אייקון בלשונית הדפדפן -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2310b981'><path d='M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-5.45 9-12V7l-9-5z'/></svg>">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & ReactDOM CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  
+  <!-- Babel Compiler for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-zinc-950 text-zinc-100 font-sans antialiased selection:bg-emerald-500/30">
+
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const COMMON_TRIGGER_REASONS = [
+      "עייפות קיצונית / חוסר שינה",
+      "לחץ נפשי או חרדה פתאומים",
+      "שיעמום או זמן פנוי ללא מסגרת",
+      "טריגר סביבתי / חשיפה לגירוי",
+      "תחושת תסכול או כעס",
+      "אחר (פירוט חופשי)"
+    ];
+
+    // רכיב הלוגו הראשי של איתן
+    function EitanLogo({ size = "md" }) {
+      const dimensions = size === "sm" ? "w-8 h-8 text-base" : size === "lg" ? "w-16 h-16 text-3xl" : "w-10 h-10 text-xl";
+      
+      return (
+        <div className="flex items-center gap-3">
+          <div className={`${dimensions} rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-zinc-950 font-black flex items-center justify-center shadow-lg shadow-emerald-500/20 border border-emerald-400/30 tracking-tighter`}>
+            א
+          </div>
+          <div className="flex flex-col text-right">
+            <span className="font-black text-lg tracking-tight text-white leading-none">איתן</span>
+            <span className="text-[10px] text-emerald-400 font-medium tracking-wider uppercase">חוסן ואיזון</span>
+          </div>
+        </div>
+      );
+    }
+
+    function EitanApp() {
+      const [isRegistered, setIsRegistered] = useState(() => {
+        return localStorage.getItem('eitan_registered') === 'true';
+      });
+
+      const [profile, setProfile] = useState(() => {
+        const saved = localStorage.getItem('eitan_profile');
+        return saved ? JSON.parse(saved) : {
+          name: '',
+          age: '',
+          gender: 'זכר',
+          language: 'he',
+          symptoms: [],
+          promise: '',
+          signatureDataUrl: ''
+        };
+      });
+
+      const [onboardingStep, setOnboardingStep] = useState(1);
+      const [tempPassword, setTempPassword] = useState('');
+
+      // משטח חתימה
+      const canvasRef = useRef(null);
+      const [isDrawing, setIsDrawing] = useState(false);
+      const [hasSigned, setHasSigned] = useState(false);
+
+      // טיימר
+      const [startTime, setStartTime] = useState(() => {
+        const saved = localStorage.getItem('eitan_streak_start');
+        return saved ? parseInt(saved, 10) : Date.now();
+      });
+
+      const [logs, setLogs] = useState(() => {
+        const saved = localStorage.getItem('eitan_logs');
+        return saved ? JSON.parse(saved) : [];
+      });
+
+      const [elapsedSeconds, setElapsedSeconds] = useState(0);
+      const [showResetModal, setShowResetModal] = useState(false);
+      const [selectedCategory, setSelectedCategory] = useState(COMMON_TRIGGER_REASONS[0]);
+      const [resetReason, setResetReason] = useState('');
+
+      useEffect(() => {
+        if (!isRegistered) return;
+        const updateTimer = () => {
+          const now = Date.now();
+          const diff = Math.max(0, Math.floor((now - startTime) / 1000));
+          setElapsedSeconds(diff);
+        };
+        updateTimer();
+        const interval = setInterval(updateTimer, 1000);
+        return () => clearInterval(interval);
+      }, [startTime, isRegistered]);
+
+      const days = Math.floor(elapsedSeconds / (3600 * 24));
+      const hours = Math.floor((elapsedSeconds % (3600 * 24)) / 3600);
+      const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+      const seconds = elapsedSeconds % 60;
+      const circleProgress = (seconds / 60) * 100;
+
+      // פונקציות חתימה
+      const startDrawing = (e) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        setIsDrawing(true);
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        ctx.beginPath();
+        ctx.moveTo(clientX - rect.left, clientY - rect.top);
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+      };
+
+      const draw = (e) => {
+        if (!isDrawing) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        ctx.lineTo(clientX - rect.left, clientY - rect.top);
+        ctx.stroke();
+        setHasSigned(true);
+      };
+
+      const stopDrawing = () => {
+        if (!isDrawing) return;
+        setIsDrawing(false);
+        const canvas = canvasRef.current;
+        if (canvas) {
+          setProfile(prev => ({ ...prev, signatureDataUrl: canvas.toDataURL() }));
+        }
+      };
+
+      const clearSignature = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        setHasSigned(false);
+        setProfile(prev => ({ ...prev, signatureDataUrl: '' }));
+      };
+
+      const handleFinishOnboarding = () => {
+        localStorage.setItem('eitan_registered', 'true');
+        localStorage.setItem('eitan_profile', JSON.stringify(profile));
+        setIsRegistered(true);
+      };
+
+      const handleConfirmReset = () => {
+        const newLog = {
+          id: Date.now().toString(),
+          date: new Date().toLocaleString('he-IL'),
+          category: selectedCategory,
+          reason: resetReason.trim() ? resetReason : 'ללא פירוט נוסף',
+        };
+        const updatedLogs = [newLog, ...logs];
+        const newStartTime = Date.now();
+
+        setLogs(updatedLogs);
+        setStartTime(newStartTime);
+        localStorage.setItem('eitan_logs', JSON.stringify(updatedLogs));
+        localStorage.setItem('eitan_streak_start', newStartTime.toString());
+
+        setResetReason('');
+        setShowResetModal(false);
+      };
+
+      // --- מסכי הרשמה ---
+      if (!isRegistered) {
+        return (
+          <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center p-4" dir="rtl">
+            <div className="bg-zinc-900/90 border border-zinc-800 p-8 rounded-3xl max-w-lg w-full space-y-6 shadow-2xl">
+              
+              {onboardingStep === 1 && (
+                <div className="space-y-6">
+                  <div className="text-center space-y-3 flex flex-col items-center">
+                    <EitanLogo size="lg" />
+                    <h1 className="text-2xl font-black pt-2">ברוכים  לאיתן</h1>
+                    <p className="text-xs text-zinc-400">מרחב פרטי ומאובטח לבניית חוסן אישי וניהול הרגלים</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-xs text-zinc-400 block mb-1">שם מלא או כינוי</label>
+                      <input
+                        type="text"
+                        value={profile.name}
+                        onChange={(e) => setProfile({...profile, name: e.target.value})}
+                        placeholder="הכנס את שמך..."
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-zinc-400 block mb-1">קוד גישה / סיסמה אישית (PIN)</label>
+                      <input
+                        type="password"
+                        maxLength={4}
+                        value={tempPassword}
+                        onChange={(e) => setTempPassword(e.target.value)}
+                        placeholder="••••"
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-center text-lg text-white tracking-widest focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    disabled={!profile.name.trim() || tempPassword.length < 4}
+                    onClick={() => setOnboardingStep(2)}
+                    className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-zinc-950 font-bold text-sm transition-all shadow-lg shadow-emerald-500/10"
+                  >
+                    המשך לבחירת שפה
+                  </button>
+                </div>
+              )}
+
+              {onboardingStep === 2 && (
+                <div className="space-y-6">
+                  <div className="text-center space-y-2">
+                    <h2 className="text-xl font-bold">בחר שפת ממשק</h2>
+                    <p className="text-xs text-zinc-400">התאם את האפליקציה לנוחות שלך</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      onClick={() => setProfile({...profile, language: 'he'})}
+                      className={`p-5 rounded-2xl border text-center transition-all ${profile.language === 'he' ? 'border-emerald-500 bg-emerald-500/10 text-white font-bold' : 'border-zinc-800 bg-zinc-950 text-zinc-400'}`}
+                    >
+                      עברית (RTL)
+                    </button>
+                    <button
+                      onClick={() => setProfile({...profile, language: 'en'})}
+                      className={`p-5 rounded-2xl border text-center transition-all ${profile.language === 'en' ? 'border-emerald-500 bg-emerald-500/10 text-white font-bold' : 'border-zinc-800 bg-zinc-950 text-zinc-400'}`}
+                    >
+                      English
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setOnboardingStep(3)}
+                    className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold text-sm transition-all"
+                  >
+                    המשך
+                  </button>
+                </div>
+              )}
+
+              {onboardingStep === 3 && (
+                <div className="space-y-6">
+                  <div className="text-center space-y-2">
+                    <h2 className="text-xl font-bold">הכירות אישית</h2>
+                    <p className="text-xs text-zinc-400">נתונים אלו נשמרים אך ורק אצלך במכשיר</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-xs text-zinc-400 block mb-1">גיל</label>
+                      <input
+                        type="number"
+                        value={profile.age}
+                        onChange={(e) => setProfile({...profile, age: e.target.value})}
+                        placeholder="הכנס את גילך..."
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-zinc-400 block mb-1">מגדר</label>
+                      <select
+                        value={profile.gender}
+                        onChange={(e) => setProfile({...profile, gender: e.target.value})}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+                      >
+                        <option value="זכר">זכר</option>
+                        <option value="נקבה">נקבה</option>
+                        <option value="אחר">אחר</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setOnboardingStep(4)}
+                    className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold text-sm transition-all"
+                  >
+                    המשך
+                  </button>
+                </div>
+              )}
+
+              {onboardingStep === 4 && (
+                <div className="space-y-6">
+                  <div className="text-center space-y-2">
+                    <h2 className="text-xl font-bold">תחושות ואתגרים להתמודדות</h2>
+                    <p className="text-xs text-zinc-400">בחר את התחומים שתרצה לשפר ולחזק</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {['שחיקה מנטלית', 'עייפות ואנרגיה נמוכה', 'לחץ וחרדה', 'קשיי ריכוז', 'הרגלים ממכרים', 'חוסר שקט פנימי'].map((sym) => {
+                      const isSelected = profile.symptoms.includes(sym);
+                      return (
+                        <button
+                          key={sym}
+                          type="button"
+                          onClick={() => {
+                            const updated = isSelected 
+                              ? profile.symptoms.filter(s => s !== sym)
+                              : [...profile.symptoms, sym];
+                            setProfile({...profile, symptoms: updated});
+                          }}
+                          className={`p-3 rounded-xl border text-right transition-all ${isSelected ? 'border-emerald-500 bg-emerald-500/10 text-white' : 'border-zinc-800 bg-zinc-950 text-zinc-400'}`}
+                        >
+                          {sym}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => setOnboardingStep(5)}
+                    className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold text-sm transition-all"
+                  >
+                    המשך להבטחה האישית
+                  </button>
+                </div>
+              )}
+
+              {onboardingStep === 5 && (
+                <div className="space-y-5">
+                  <div className="text-center space-y-1">
+                    <h2 className="text-xl font-bold">ההבטחה שלי לעצמי</h2>
+                    <p className="text-xs text-zinc-400">התחייבות אישית שתלווה אותך בכל כניסה למערכת</p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <textarea
+                      value={profile.promise}
+                      onChange={(e) => setProfile({...profile, promise: e.target.value})}
+                      placeholder="אני מתחייב לעצמי מהיום לשמור על שליטה מלאה..."
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500 resize-none h-20"
+                    />
+                    
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-xs text-zinc-400">חתימה דיגיטלית (חתום כאן עם האצבע/עכבר)</label>
+                        <button onClick={clearSignature} className="text-[10px] text-zinc-500 hover:text-rose-400">
+                          נקה חתימה
+                        </button>
+                      </div>
+                      <div className="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden relative touch-none">
+                        <canvas
+                          ref={canvasRef}
+                          width={400}
+                          height={120}
+                          onMouseDown={startDrawing}
+                          onMouseMove={draw}
+                          onMouseUp={stopDrawing}
+                          onTouchStart={startDrawing}
+                          onTouchMove={draw}
+                          onTouchEnd={stopDrawing}
+                          className="w-full h-[120px] cursor-crosshair bg-zinc-950/50"
+                        />
+                        {!hasSigned && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-zinc-600 text-xs">
+                            חתום באזור זה...
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    disabled={!profile.promise.trim() || !hasSigned}
+                    onClick={handleFinishOnboarding}
+                    className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-zinc-950 font-bold text-sm transition-all shadow-lg shadow-emerald-500/20"
+                  >
+                    סיום וכניסה לאיתן
+                  </button>
+                </div>
+              )}
+
+            </div>
+          </div>
+        );
+      }
+
+      // --- Dashboard ראשי ---
+      return (
+        <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans p-4 md:p-8" dir="rtl">
+          <div className="max-w-4xl mx-auto space-y-6">
+            
+            {/* סרגל עליון (Navbar) עם לוגו האתר */}
+            <header className="bg-zinc-900/80 border border-zinc-800 px-6 py-4 rounded-2xl flex justify-between items-center shadow-lg backdrop-blur-md">
+              <EitanLogo size="sm" />
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 font-medium">
+                  שלום, {profile.name}
+                </span>
+              </div>
+            </header>
+
+            {/* באנר ההבטחה האישית והחתימה הדיגיטלית */}
+            <div className="bg-zinc-900/90 border border-emerald-500/30 p-6 rounded-3xl shadow-lg relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="absolute top-0 right-0 w-2 h-full bg-emerald-500"></div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold tracking-wider text-emerald-400 uppercase">ההבטחה שלי לעצמי</span>
+                <p className="text-sm md:text-base font-medium text-zinc-200 italic">"{profile.promise}"</p>
+              </div>
+              <div className="bg-zinc-950/80 px-4 py-2 rounded-xl border border-zinc-800 text-center flex-shrink-0">
+                <span className="text-[9px] text-zinc-500 block mb-0.5">חתימה מאומתת</span>
+                {profile.signatureDataUrl ? (
+                  <img src={profile.signatureDataUrl} alt="Signature" className="h-10 w-24 object-contain filter invert brightness-200" />
+                ) : (
+                  <span className="text-xs font-serif italic text-emerald-400">{profile.name}</span>
+                )}
+              </div>
+            </div>
+
+            {/* מרכז הטיימר המעגלי */}
+            <div className="bg-zinc-900/90 border border-zinc-800 p-8 rounded-3xl text-center space-y-8 shadow-xl flex flex-col items-center">
+              
+              <div className="flex justify-between w-full items-center">
+                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">טיימר רצף נקי</span>
+                <span className="text-xs text-zinc-500">מצב אופליין / פרטי</span>
+              </div>
+
+              <div 
+                onClick={() => setShowResetModal(true)}
+                className="relative w-64 h-64 rounded-full flex items-center justify-center cursor-pointer group transition-transform hover:scale-105"
+                title="לחץ לאיפוס / דיווח נפילה"
+              >
+                <div className="absolute inset-0 rounded-full border-4 border-zinc-800"></div>
+                <svg className="absolute inset-0 w-full h-full -rotate-90">
+                  <circle
+                    cx="128"
+                    cy="128"
+                    r="120"
+                    stroke="currentColor"
+                    strokeWidth="6"
+                    fill="transparent"
+                    className="text-emerald-500 transition-all duration-500"
+                    strokeDasharray={754}
+                    strokeDashoffset={754 - (754 * circleProgress) / 100}
+                  />
+                </svg>
+                
+                <div className="absolute inset-2 rounded-full bg-zinc-950/90 flex flex-col items-center justify-center space-y-1 shadow-inner group-hover:bg-zinc-950 transition-colors">
+                  <div className="text-3xl md:text-4xl font-black text-white">{days} <span className="text-xs font-normal text-zinc-400">ימים</span></div>
+                  <div className="text-lg font-bold text-zinc-300">{String(hours).padStart(2, '0')}:{String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}</div>
+                  <div className="text-[10px] text-emerald-400 font-semibold pt-1">לחץ כאן לאיפוס</div>
+                </div>
+              </div>
+
+              <p className="text-xs text-zinc-500 max-w-xs">
+                הטיימר סופר את הזמן הנקי שלך ברציפות. לחיצה על המעגל תפתח את חלון הדיווח המהיר.
+              </p>
+
+            </div>
+
+          </div>
+
+          {showResetModal && (
+            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl max-w-md w-full space-y-4">
+                <h3 className="text-lg font-bold text-white">דיווח נפילה ואיפוס טיימר</h3>
+                <p className="text-xs text-zinc-400">בחר את הסיבה המרכזית שהובילה לאיפוס:</p>
+                
+                <div className="space-y-2">
+                  {COMMON_TRIGGER_REASONS.map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`w-full p-2.5 rounded-xl border text-right text-xs transition-all ${selectedCategory === cat ? 'border-emerald-500 bg-emerald-500/10 text-white font-bold' : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700'}`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                <div>
+                  <label className="text-[11px] text-zinc-400 block mb-1">הסבר פרטני קצר (אופציונלי):</label>
+                  <input
+                    type="text"
+                    value={resetReason}
+                    onChange={(e) => setResetReason(e.target.value)}
+                    placeholder="הוסף פרט קטן לעצמך..."
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={handleConfirmReset}
+                    className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold text-xs transition-all"
+                  >
+                    אישור ואיפוס טיימר
+                  </button>
+                  <button
+                    onClick={() => setShowResetModal(false)}
+                    className="px-4 py-2.5 rounded-xl bg-zinc-950 text-zinc-400 font-bold text-xs hover:text-white transition-all"
+                  >
+                    ביטול
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<EitanApp />);
+  </script>
+</body>
+</html>
